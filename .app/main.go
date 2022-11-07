@@ -98,11 +98,10 @@ func RequestForwarder(c *gin.Context) {
 
 			token := APIService.SJwt.GenerateJWT(sclaims)
 			client := &http.Client{}
-			req, _ := http.NewRequest(c.Request.Method, nodeDetails.Host+":"+strconv.Itoa(nodeDetails.Port)+requestedPath, nil)
+			req, _ := http.NewRequest(c.Request.Method, nodeDetails.Host+":"+strconv.Itoa(nodeDetails.Port)+requestedPath, c.Request.Body)
 			req.Header = c.Request.Header
 			req.Header.Del("Authorization")
 			req.Header.Add("Authorization", APIService.SJwt.AuthType+" "+token)
-			req.Body = c.Request.Body
 			res, errn := client.Do(req)
 			if errn == nil {
 				body, _ := ioutil.ReadAll(res.Body)
