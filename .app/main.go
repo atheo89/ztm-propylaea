@@ -74,9 +74,6 @@ func RequestForwarder(c *gin.Context) {
 	var requestedPath = strings.TrimRight(c.Request.URL.Path, "/")
 	var requestedUrlQuery = c.Request.URL.RawQuery
 
-	fmt.Println(requestedPath)
-	fmt.Println(requestedUrlQuery)
-
 	for _, nodeDetails := range APIService.Config.Services {
 
 		m, _ := regexp.MatchString(nodeDetails.URL, requestedPath)
