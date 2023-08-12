@@ -1,11 +1,11 @@
 package main
 
 import (
-	middleware "api-gateway/middleware"
 	models "api-gateway/models"
 	routes "api-gateway/routes"
+	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"regexp"
@@ -14,12 +14,14 @@ import (
 	"strings"
 	"time"
 
+	ztm "github.com/devcoons/go-ztm"
+
 	c "github.com/devcoons/go-fmt-colors"
 	"github.com/gin-gonic/gin"
 )
 
-var APIService middleware.Service
-var ServicesSts []middleware.ServicesStatus
+var APIService ztm.Service
+var ServicesSts []ztm.ServicesStatus
 
 func main() {
 	runtime.GOMAXPROCS(8)
@@ -28,8 +30,13 @@ func main() {
 	cfgfile, present := os.LookupEnv("IMSCFGFILE")
 
 	if !present {
-		fmt.Println(c.FmtFgBgWhiteLBlue+"[ IMS ]"+c.FmtReset, c.FmtFgBgWhiteRed+" ERRN "+c.FmtReset, c.FmtFgBgWhiteBlack+"Configuration file env.variable `IMSCFGFILE` does not exist"+c.FmtReset)
-		return
+		wordPtr := flag.String("cfg-file", "", "Service Configuration file")
+		flag.Parse()
+		if wordPtr == nil || *wordPtr == "" {
+			fmt.Println(c.FmtFgBgWhiteLBlue+"[ IMS ]"+c.FmtReset, c.FmtFgBgWhiteRed+" ERRN "+c.FmtReset, c.FmtFgBgWhiteBlack+"Configuration file env.variable `IMSCFGFILE` does not exist"+c.FmtReset)
+			return
+		}
+		cfgfile = *wordPtr
 	}
 
 	if !APIService.Initialize(cfgfile) {
@@ -43,7 +50,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.Use(gin.Recovery())
-	router.Use(middleware.AddUSEService(&APIService))
+	router.Use(ztm.AddUSEService(&APIService))
 
 	router.POST("/register", routes.RoutePOSTRegister)
 	router.POST("/login", routes.RoutePOSTLogin)
@@ -80,7 +87,7 @@ func RequestForwarder(c *gin.Context) {
 
 		if m {
 
-			var sclaims middleware.SJWTClaims
+			var sclaims ztm.SJWTClaims
 
 			claims := APIService.ValidateUserJWT(c.Request)
 			if claims == nil {
@@ -105,7 +112,7 @@ func RequestForwarder(c *gin.Context) {
 			req.Header.Add("Authorization", APIService.SJwt.AuthType+" "+token)
 			res, errn := client.Do(req)
 			if errn == nil {
-				body, _ := ioutil.ReadAll(res.Body)
+				body, _ := io.ReadAll(res.Body)
 				c.Data(res.StatusCode, res.Header.Get("Content-Type"), body)
 			} else {
 				c.Data(503, "application/json", nil)
@@ -119,16 +126,16 @@ func ServicesHealthCheck() {
 
 	for {
 
-		var tServicesSts []middleware.ServicesStatus
+		var tServicesSts []ztm.ServicesStatus
 		for _, nodeDetails := range APIService.Config.Services {
-			var sclaims middleware.SJWTClaims
+			var sclaims ztm.SJWTClaims
 			sclaims.Auth = false
 			sclaims.Role = 0
 			sclaims.UserId = -1
 			sclaims.Service = "api-gateway"
 			sclaims.Hop = 1
 			token := APIService.SJwt.GenerateJWT(sclaims)
-			tServicesSts = append(tServicesSts, middleware.ServicesStatus{Name: nodeDetails.Name, IsAlive: ServiceHealthPing(nodeDetails.Host+":"+strconv.Itoa(nodeDetails.Port)+"/", token)})
+			tServicesSts = append(tServicesSts, ztm.ServicesStatus{Name: nodeDetails.Name, IsAlive: ServiceHealthPing(nodeDetails.Host+":"+strconv.Itoa(nodeDetails.Port)+"/", token)})
 		}
 		ServicesSts = tServicesSts
 		time.Sleep(2 * time.Second)

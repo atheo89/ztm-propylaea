@@ -17,3 +17,13 @@ run-debug:
 
 attach-net:
 	docker network connect $(net) $(APP_NAME) 
+<<<<<<< HEAD
+=======
+
+attach-default-net:
+	-docker network create ztm-net 
+	-docker network create ztm-net-db 
+	-docker network connect ztm-net $(APP_NAME)
+
+debug: build-debug run-debug attach-default-net
+>>>>>>> feccf074d7861ed78b56217b98d443652bd48f85

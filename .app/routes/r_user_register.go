@@ -1,17 +1,18 @@
 package routes
 
 import (
-	middleware "api-gateway/middleware"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
+
+	ztm "github.com/devcoons/go-ztm"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RoutePOSTRegister(c *gin.Context) {
 
-	srv, ok := c.MustGet("service").(*middleware.Service)
+	srv, ok := c.MustGet("service").(*ztm.Service)
 
 	if !ok || srv == nil {
 		c.IndentedJSON(http.StatusExpectationFailed, nil)
@@ -23,22 +24,11 @@ func RoutePOSTRegister(c *gin.Context) {
 		return
 	}
 
-	var sclaims middleware.SJWTClaims
+	url := srv.Config.PathRegister.Host + ":" + strconv.Itoa(srv.Config.PathRegister.Port) + srv.Config.PathRegister.URL
+	res, errn := srv.RequestWithClaims(url, "POST", nil, c.Request.Body, ztm.SJWTClaims{Auth: false, Hop: 2, Role: -1, Service: srv.Config.Ims.Abbeviation, UserId: -1})
 
-	sclaims.Auth = false
-	sclaims.Hop = 2
-	sclaims.Role = 0
-	sclaims.Service = "api-gateway"
-	sclaims.UserId = -1
-	token := srv.SJwt.GenerateJWT(sclaims)
-	client := &http.Client{}
-	req, _ := http.NewRequest(c.Request.Method, srv.Config.PathRegister.Host+":"+strconv.Itoa(srv.Config.PathRegister.Port)+srv.Config.PathRegister.URL, c.Request.Body)
-	req.Header = c.Request.Header
-	req.Header.Del("Authorization")
-	req.Header.Add("Authorization", srv.SJwt.AuthType+" "+token)
-	res, errn := client.Do(req)
 	if errn == nil {
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		c.Data(res.StatusCode, res.Header.Get("Content-Type"), body)
 	} else {
 		c.Data(503, "application/json", nil)
